@@ -299,6 +299,9 @@
           "drilldowns": {
             "$ref": "common.schema.json#/$defs/drilldowns"
           },
+          "href": {
+            "$ref": "common.schema.json#/$defs/nodeHrefSugar"
+          },
           "width": {
             "type": "number",
             "minimum": 32

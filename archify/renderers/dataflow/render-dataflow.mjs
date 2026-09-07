@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { esc, renderDefinitions, renderSemanticSigil, textUnits } from '../shared/utils.mjs';
-import { animateAttr, focusEdgeAttrs, focusNodeAttrs, focusNodeTitle, loadDiagramWithBrandMarks, writeDiagram, svgAccessibleText, svgRootAttrs } from '../shared/cli.mjs';
+import { animateAttr, focusEdgeAttrs, focusNodeAttrs, focusNodeTitle, loadDiagramWithBrandMarks, renderDrilldownMark, resolveNodeDrilldowns, wrapSingleChildAnchor, writeDiagram, svgAccessibleText, svgRootAttrs } from '../shared/cli.mjs';
 import { throwDiagnosticProblems } from '../shared/diagnostics.mjs';
 import { resolveLegend, renderLegend as renderResolvedLegend } from '../shared/legend.mjs';
 import { availableNodeTextWidth, fittedNodeFontSize, minimumNodeTextWidth } from '../shared/text-fit.mjs';
@@ -385,15 +385,17 @@ function renderNode(node) {
     : i18nText(dataflow.meta.locale, 'node.context.dataflow');
   const brand = renderBrandMark(node, { x: node.x + node.width - 22, y: node.y + 6 });
   const labelFontSize = fittedNodeFontSize(node.label, brandLabelFitWidth(node, node.width), 10, 8);
-  // drilldowns 透传到 focusNodeAttrs → data-node-drilldowns，供 Passport 多选 / Ctrl 默认首项
-  const passport = { kind: node.type, sublabel: node.sublabel, tag: node.tag, context, drilldowns: node.drilldowns, ...brandMetadataFor(node) };
-  return `        <g ${focusNodeAttrs(node.id, node.label, passport, dataflow.meta.locale)}>
+  // drilldowns / href 简写一并解析：单目标会包 <a> + 角标，多目标只写 Passport 属性
+  const drilldowns = resolveNodeDrilldowns(node);
+  const passport = { kind: node.type, sublabel: node.sublabel, tag: node.tag, context, drilldowns, href: node.href, ...brandMetadataFor(node) };
+  const mark = drilldowns.length ? `\n          ${renderDrilldownMark(node)}` : '';
+  return wrapSingleChildAnchor(`        <g ${focusNodeAttrs(node.id, node.label, passport, dataflow.meta.locale)}>
           ${focusNodeTitle(node.label, passport)}
           <rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="6" class="c-mask"/>
           <rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="6" class="${fill}"${animateAttr(dataflow.meta, 'node', nodeSteps.get(node.id))} stroke-width="1.5"/>
           ${renderSemanticSigil(node.type, { x: node.x + 6, y: node.y + 6 })}${brand ? `\n          ${brand}` : ''}
-          <text data-node-label=""${hasSub ? ' data-detail-anchor=""' : ''} x="${node.cx}" y="${node.y + 21}" class="t-primary" font-size="${labelFontSize}" font-weight="600" text-anchor="middle">${esc(node.label)}</text>${sub}${tag}
-        </g>`;
+          <text data-node-label=""${hasSub ? ' data-detail-anchor=""' : ''} x="${node.cx}" y="${node.y + 21}" class="t-primary" font-size="${labelFontSize}" font-weight="600" text-anchor="middle">${esc(node.label)}</text>${sub}${tag}${mark}
+        </g>`, drilldowns);
 }
 
 function renderFlowPath(flow, index) {

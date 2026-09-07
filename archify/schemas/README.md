@@ -146,10 +146,13 @@ The five diagram schemas reference `common.schema.json#/$defs/...`:
   override shapes used by each renderer-owned key map
 - `guidedViews` — the bounded, read-only reader paths accepted by `meta.views`
 - `cards` — the summary-card blocks rendered below the SVG
-- `drilldowns` / `parentHref` — cross-HTML navigation. Nodes may list one or
-  more relative `.html` targets; Passport shows all; Ctrl/double-click opens the
-  first. Child diagrams may set `meta.parentHref` for Back (runtime also accepts
-  `?from=`).
+- `drilldowns` / `href` / `parentHref` — cross-HTML navigation. Targets are
+  same-directory `*.html` files (optional `?` / `#`). `href` on a node is sugar
+  for a one-entry `drilldowns` list (label defaults to the node label);
+  `drilldowns` wins if both are present. Passport lists all targets. One child:
+  native SVG `<a>` + visible mark, click follows the link, Alt-click focuses.
+  Several children: click focuses; Ctrl/double-click opens the first. Child
+  diagrams may set `meta.parentHref` for Back (runtime also accepts `?from=`).
 
 Lifecycle state `type` is mode-specific (`start`/`active`/`waiting`/...) and
 stays in `lifecycle.schema.json`.

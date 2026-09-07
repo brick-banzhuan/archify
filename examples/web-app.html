@@ -1864,6 +1864,23 @@
     }
     html[data-preset="blueprint"] .parent-back-bar button { border-radius: 0.15rem; }
     svg [data-node-id][data-node-drilldowns] { cursor: pointer; }
+    /* 单目标下钻：原生 SVG <a> 不画下划线；角标必须跟 SVG 一起导出 */
+    a.archify-drilldown-link {
+      text-decoration: none;
+      color: inherit;
+      cursor: pointer;
+    }
+    .archify-drilldown-mark-disc {
+      fill: color-mix(in srgb, var(--backend-stroke) 88%, var(--panel));
+      stroke: color-mix(in srgb, var(--backend-stroke) 55%, var(--toolbar-border));
+      stroke-width: 1;
+    }
+    .archify-drilldown-mark-arrow {
+      stroke: var(--panel);
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
 
     .semantic-passport-evidence {
       margin-top: 0.52rem;
@@ -7978,14 +7995,14 @@
         renderSourceEvidence(id);
       }
       /**
-       * 仅允许相对 .html（与 schema relativeHtmlHref 对齐），拒绝协议/绝对 URL，防注入跳转。
+       * 仅允许同目录文件名.html（可选 ?query / #fragment）。
+       * 与 schema relativeHtmlHref / isSiblingHtmlHref 对齐：拒绝协议、/、..，防跳出产物目录。
        */
       function isSafeRelativeHtmlHref(value) {
         if (typeof value !== 'string') return false;
         var href = value.trim();
         if (!href || href.length > 512) return false;
-        if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(href) || href.indexOf('//') !== -1) return false;
-        return /\.html([?#]|$)/i.test(href);
+        return /^[A-Za-z0-9][A-Za-z0-9._-]*\.html(?:[?#][A-Za-z0-9._~/=&%+!?$-]*)?$/.test(href);
       }
       function currentPageHref() {
         var parts = (location.pathname || '').split('/');
@@ -8041,6 +8058,16 @@
           if (parent) parentBackBtn.setAttribute('data-parent-href', parent);
           else parentBackBtn.removeAttribute('data-parent-href');
         }
+      }
+      /**
+       * 渲染时 <a href> 是裸文件名；打开页后再补 ?from=，子图无 parentHref 也能回。
+       * 只改 data-archify-drilldown，不动 Passport / 证据链接。
+       */
+      function rewriteDrilldownAnchors() {
+        Array.prototype.forEach.call(svg.querySelectorAll('a[data-archify-drilldown]'), function (anchor) {
+          var next = hrefWithFrom(anchor.getAttribute('href'));
+          if (next) anchor.setAttribute('href', next);
+        });
       }
       function parseNodeDrilldowns(node) {
         if (!node) return [];
@@ -8992,6 +9019,18 @@
         if (container.getAttribute('data-just-panned') === 'true') return;
         var node = event.target.closest('[data-node-id]');
         if (node) {
+          // Ctrl/Cmd+单击：跳过 focus，直接打开 Passport 列表第一项子图
+          if ((event.ctrlKey || event.metaKey) && openPrimaryDrilldown(node)) {
+            event.preventDefault();
+            return;
+          }
+          // Alt+单击：即使节点包了原生 <a> 也不跳，只 focus（审稿：探路仍要能选中）
+          if (event.altKey) {
+            event.preventDefault();
+          } else if (event.target.closest('a[data-archify-drilldown]')) {
+            // 单目标：交给浏览器跟 <a>，不再 set(id) 以免抢导航
+            return;
+          }
           var id = node.getAttribute('data-node-id');
           set(id);
           if (activeIds.indexOf(id) !== -1 && Archify.view && typeof Archify.view.reveal === 'function') {
@@ -9025,6 +9064,7 @@
       if (parentBackBtn) {
         parentBackBtn.addEventListener('click', function () { navigateToParent(); });
       }
+      rewriteDrilldownAnchors();
       syncParentBackControls();
       upstreamBtn.addEventListener('click', function () { applyReachability('upstream'); });
       downstreamBtn.addEventListener('click', function () { applyReachability('downstream'); });

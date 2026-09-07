@@ -153,8 +153,10 @@ export function svgRootAttrs(meta) {
     ? ` data-engineering-profile="${esc(meta.engineering_profile)}"`
     : '';
   // 子图返回上一级：作者写在 meta.parentHref；Viewer 也会读 URL ?from= 作兜底
-  const parentHref = meta.parentHref && String(meta.parentHref).trim()
-    ? ` data-parent-href="${esc(String(meta.parentHref).trim())}"`
+  // 再过一遍同目录规则，避免未走 schema 的调用把 ../ 或协议写进 SVG。
+  const parentHrefRaw = meta.parentHref != null ? String(meta.parentHref).trim() : '';
+  const parentHref = parentHrefRaw && isSiblingHtmlHref(parentHrefRaw)
+    ? ` data-parent-href="${esc(parentHrefRaw)}"`
     : '';
   const requestedProfile = process.env.ARCHIFY_QUALITY_PROFILE || meta.quality_profile;
   const qualityProfile = requestedProfile === 'showcase' ? 'showcase' : 'standard';
@@ -184,8 +186,19 @@ export function animateAttr(meta, kind, step) {
 // boundary so these helpers remain safe if that contract expands later.
 
 /**
+ * 同目录 HTML 目标：文件名.html，可选 ?query / #fragment。
+ * 拒绝协议、`//`、`/` 路径段和 `..`，避免跳出产物目录。
+ */
+export function isSiblingHtmlHref(value) {
+  if (typeof value !== 'string') return false;
+  const href = value.trim();
+  if (!href || href.length > 512) return false;
+  return /^[A-Za-z0-9][A-Za-z0-9._-]*\.html(?:[?#][A-Za-z0-9._~/=&%+!?$-]*)?$/.test(href);
+}
+
+/**
  * 规范化节点上的 drilldowns 数组，供 SVG data-node-drilldowns 与 Passport 共用。
- * 只保留合法相对 .html 目标；顺序即 Passport 展示顺序，首项为 Ctrl/双击默认跳转。
+ * 只保留同目录 .html 目标；顺序即 Passport 展示顺序，首项为 Ctrl/双击默认跳转。
  */
 export function normalizeDrilldowns(raw) {
   if (!Array.isArray(raw) || raw.length === 0) return [];
@@ -194,7 +207,7 @@ export function normalizeDrilldowns(raw) {
       if (!entry || typeof entry !== 'object') return null;
       const href = entry.href != null ? String(entry.href).trim() : '';
       const label = entry.label != null ? String(entry.label).trim() : '';
-      if (!href || !label) return null;
+      if (!href || !label || !isSiblingHtmlHref(href)) return null;
       const out = { href, label };
       if (entry.diagram_type != null && String(entry.diagram_type).trim() !== '') {
         out.diagram_type = String(entry.diagram_type).trim();
@@ -202,6 +215,47 @@ export function normalizeDrilldowns(raw) {
       return out;
     })
     .filter(Boolean);
+}
+
+/**
+ * 解析节点最终子图列表：`drilldowns` 优先；否则把节点 `href` 收成一项，label 默认用节点名。
+ * 两边都写时必须忽略 href，避免作者以为简写会覆盖数组。
+ */
+export function resolveNodeDrilldowns(node = {}) {
+  const fromArray = normalizeDrilldowns(node.drilldowns);
+  if (fromArray.length) return fromArray;
+  const href = node.href != null ? String(node.href).trim() : '';
+  if (!isSiblingHtmlHref(href)) return [];
+  const label = node.label != null && String(node.label).trim() !== ''
+    ? String(node.label).trim()
+    : href.replace(/\.html(?:[?#].*)?$/i, '');
+  return [{ href, label }];
+}
+
+/**
+ * 单目标节点包一层原生 SVG `<a>`，导出/无 Viewer JS 时单击仍能跳。
+ * 多目标不包，避免浏览器把整节点当成唯一链接。
+ */
+export function wrapSingleChildAnchor(markup, targets) {
+  if (!Array.isArray(targets) || targets.length !== 1) return markup;
+  const target = targets[0];
+  return `<a class="archify-drilldown-link" data-archify-drilldown="1" href="${esc(target.href)}" aria-label="${esc(target.label)}">\n        ${markup}\n        </a>`;
+}
+
+/**
+ * 节点角标：提示「可下钻」。放在盒内右下，避开左上 sigil / 右上 brand。
+ * 必须画进 SVG，canonical 导出后标记仍在。
+ */
+export function renderDrilldownMark(box) {
+  if (!box || !Number.isFinite(box.x) || !Number.isFinite(box.y) || !Number.isFinite(box.width) || !Number.isFinite(box.height)) {
+    return '';
+  }
+  const mx = box.x + box.width - 11;
+  const my = box.y + box.height - 11;
+  return `<g class="archify-drilldown-mark" data-detail="fine" transform="translate(${mx} ${my})" aria-hidden="true">
+          <circle r="6" class="archify-drilldown-mark-disc"/>
+          <path d="M-1.8 -1.6 L2.4 0 L-1.8 1.6" fill="none" class="archify-drilldown-mark-arrow"/>
+        </g>`;
 }
 
 export function focusNodeAttrs(id, label, metadata = {}, locale) {
@@ -217,8 +271,13 @@ export function focusNodeAttrs(id, label, metadata = {}, locale) {
   ].filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== '')
     .map(([name, value]) => ` ${name}="${esc(String(value))}"`)
     .join('');
-  // 多目标下钻：JSON 写入属性；Viewer 在 Passport 列链接，Ctrl/双击走首项
-  const drilldowns = normalizeDrilldowns(metadata.drilldowns);
+  // 多目标下钻：JSON 写入属性；Viewer 在 Passport 列链接，Ctrl/双击走首项。
+  // 单目标时同时包 <a>，所以这里仍写出数组，Alt-click / Passport 才能读到同一份契约。
+  const drilldowns = resolveNodeDrilldowns({
+    drilldowns: metadata.drilldowns,
+    href: metadata.href,
+    label,
+  });
   const drilldownAttr = drilldowns.length
     ? ` data-node-drilldowns="${esc(JSON.stringify(drilldowns))}"`
     : '';

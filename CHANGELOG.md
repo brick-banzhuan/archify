@@ -6,6 +6,9 @@ All notable changes are documented here. Format loosely follows [Keep a Changelo
 
 > Development identity: `v2.17.0-dev.1`. Not a stable release.
 
+### Added
+- **Cross-diagram navigation.** Nodes may list sibling `.html` targets via `drilldowns` or a one-entry `href` shorthand. One child uses a native SVG link and visible mark (click follows, Alt-click focuses). Several children keep click-to-focus, with Passport listing every target and Ctrl/double-click opening the first. Child pages can author `meta.parentHref` for header Back; the Viewer also accepts `?from=`.
+
 ### Fixed
 - **License provenance in distributions.** Source and packaged Skill distributions retain Cocoon AI's exact MIT copyright notice, package staging and smoke tests fail closed when the notice or LICENSE is missing or altered, and the deterministic ZIP carries the same LICENSE bytes as the repository.
 - **Third-party mark notices in distributions.** Source and packaged Skill distributions now identify the pinned Simple Icons collection, disclose all individual icon licenses recorded by that version, preserve source and brand-guideline links, and state that Archify's MIT license does not replace third-party copyright or trademark terms. Package staging and smoke tests fail closed when the notice is missing or altered.

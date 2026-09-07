@@ -119,6 +119,17 @@ Never start preview by default. Read `references/delivery-contract.md` when usin
 
 Generated HTML already contains theme switching, pan/zoom, search, focus, relationship tracing, semantic views, presentation, and truthful exports. These are reader capabilities, not extra authoring work. `meta.animation: "trace"` is opt-in; `meta.views` is optional and should contain at most five curated chapters.
 
+### Cross-diagram navigation
+
+When the user wants overview → module → detail navigation across multiple HTML artifacts:
+
+- Targets are same-directory `filename.html` only (optional `?` / `#`). No `../`, `/`, or schemes.
+- Node `href` is sugar for a one-entry list (label defaults to the node label). `drilldowns` wins if both are present.
+- One child: native SVG `<a>` + corner mark; click follows the link; Alt-click focuses Passport.
+- Several children: Passport lists every target; click focuses; Ctrl+click / double-click opens the first entry.
+- Child diagrams may set `meta.parentHref`. The header Back control appears when `parentHref` or URL `?from=` is present.
+- Examples: sibling pair `examples/drilldown-platform.architecture.json` ↔ `examples/drilldown-integrations.architecture.json`; multi-child `examples/drilldown-overview.architecture.json`.
+
 Read `references/viewer-runtime.md` only when the user explicitly asks for Share Cards, Route/Reach cards, motion, guided stories, deep links, presentation, search/focus, or another Viewer Runtime feature.
 
 ## Setup and fallback

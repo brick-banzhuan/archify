@@ -115,8 +115,12 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 512,
-      "description": "Relative HTML href only (no scheme). Used for cross-diagram drilldown/back navigation.",
-      "pattern": "^(?!.*://)(?!javascript:)(?![a-zA-Z][a-zA-Z0-9+.-]*:)[A-Za-z0-9._~!\\$'()*+,;=:@/?#%-]+\\.html([?#][A-Za-z0-9._~!\\$'()*+,;=:@/?#%-]*)?$"
+      "description": "Same-directory HTML file only (no scheme, no '/'). Optional ?query or #fragment such as #focus=id.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*\\.html(?:[?#][A-Za-z0-9._~/=&%+!?$-]*)?$"
+    },
+    "nodeHrefSugar": {
+      "$ref": "#/$defs/relativeHtmlHref",
+      "description": "Shorthand for a one-entry drilldowns list. Label defaults to the node label. If drilldowns is also present, drilldowns wins."
     },
     "diagramTypeName": {
       "enum": ["architecture", "workflow", "sequence", "dataflow", "lifecycle"]

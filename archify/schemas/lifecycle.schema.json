@@ -160,6 +160,9 @@
           "drilldowns": {
             "$ref": "common.schema.json#/$defs/drilldowns"
           },
+          "href": {
+            "$ref": "common.schema.json#/$defs/nodeHrefSugar"
+          },
           "step": {
             "type": "string"
           },
